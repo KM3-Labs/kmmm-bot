@@ -12,6 +12,7 @@ Fluffy bot
 cogs = (
     'cogs.admin',
     'cogs.test',
+    'cogs.convo',
 )
 
 

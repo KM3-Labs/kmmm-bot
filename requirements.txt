@@ -1,0 +1,9 @@
+docker
+git+https://github.com/hitomi-team/shimeji.git
+ray[default]
+discord.py
+transformers
+torch
+dynaconf
+mmappickle
+bitsandbytes-cuda113
