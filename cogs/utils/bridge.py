@@ -34,12 +34,11 @@ class ServalModelProvider(ModelProvider):
             logging.info(f"Using {bert_model} for embeddings tasks.")
             logging.warn("No causal model loaded. Disabled generative conversations.")
         else:  # Nothing got loaded.
-            raise ValueError(f"No valid GPT or BERT model names provided! The available deployments are:\n{serve.list_deployments()}")
+            logging.warn(f"No valid GPT or BERT model names provided! The available deployments are:\n{serve.list_deployments()}")
         
         # handles here? if no bert, use gpt hidden states. make use of Deployment.options()
     
     
-
     def auth(self):
         pass  # cloud or remote cluter related stuff here, put all local stuff in constructor including docker api usage
 

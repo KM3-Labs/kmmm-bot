@@ -12,7 +12,9 @@ class Admin(commands.Cog):
     @checks.is_owner()
     async def load(self, ctx, *, cog):
         try:
+            print(f"loading cog {cog}")
             self.bot.load_extension(cog)
+            print(f"loaded cog {cog}")
         except commands.ExtensionError as e:
             await ctx.send(f'{e.__class__.name}: {e}')
         else:
@@ -30,12 +32,12 @@ class Admin(commands.Cog):
     
     @commands.command()
     @checks.is_owner()
-    async def sitrep(self, ctx: commands, *, cog):
-
+    async def sitrep(self, ctx):
         convo = self.bot.get_cog("Convo")
         if convo is not None:
             # Add information regarding cluster here
-            await ctx.send(f"Ray up. Deployments: {serve.list_deployments}")
+            deployments = str(serve.list_deployments())
+            await ctx.send(f"Ray up. Deployments: {deployments}")
         
 
 

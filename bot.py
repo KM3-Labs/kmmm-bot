@@ -15,6 +15,8 @@ cogs = (
     'cogs.convo',
 )
 
+intents = discord.Intents.all()
+
 
 def _prefix_callable(bot, msg):
     user_id = bot.user.id
@@ -34,7 +36,8 @@ class KmmmBot(commands.AutoShardedBot):
             chunk_guilds_at_startup=False,
             heartbeat_timeout=150.0,
             allowed_mentions=allowed_mentions,
-            enable_debug_events=False
+            enable_debug_events=False,
+            intents=intents
         )
 
         self.client_id = config.client_id
