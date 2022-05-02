@@ -1,56 +1,123 @@
 from argparse import ArgumentError
 from multiprocessing.sharedctypes import Value
 from optparse import Option
-from typing import Optional
+from turtle import st
+from typing import List, Optional
 from shimeji.model_provider import ModelProvider
 import logging
 
 import ray
 from ray import serve
 
+from cogs.utils.tf.gpthf import GPTHF
+from cogs.utils.tf.berthf import BERTHF
+
+logging.getLogger().setLevel(logging.INFO)
 
 # Everything written here MUST not be dependent on any non-inference related code!
 class ServalModelProvider(ModelProvider):
     def __init__(self, address="auto", gpt_model: Optional[str] = None, bert_model: Optional[str] = None, fid_model: Optional[str] = None):
         ray.init(address, namespace="serval")
+        deployments = serve.list_deployments()
 
-        # these are just guidelines; absolutely make sure you're assigning the right models... i made it painfully obvious
+        if (gpt_model is None) and (bert_model is None):
+            raise ValueError("No models provided. Please specify at least one type of model.")
+
+        # these are just guidelines; absolutely make sure you're assigning the right models...
         self.gpt_d = None
         self.bert_d = None
         self.fid_d = None
 
         # check deployments and see if they match up
-        for d_name, d in serve.list_deployments():
-            if gpt_model == d_name: self.gpt_d = d
-            if bert_model == d_name: self.bert_d = d
+        for d_name, d in deployments.items():
+            #if gpt_model == d_name: self.gpt_d = d.get_handle()
+            #if bert_model == d_name: self.bert_d = d.get_handle()
+            if "GPT" == d_name: self.gpt_d = d.get_handle()
+            if "BERT" == d_name: self.bert_d = d.get_handle()
         
         if (self.gpt_d is not None) and (self.bert_d is not None):
-            logging.info(f"Using {gpt_model} for language generation and {bert_model} for embeddings tasks.")
-            # load model if not available
-            
+            logging.info(f"Using {gpt_model} for language generation and {bert_model} for embeddings tasks.")  # misleading without model specific deployment names.
         elif (self.gpt_d is not None) and (self.bert_d is None):
             logging.info(f"Using {gpt_model} for generative and embeddings tasks.")  # add option to opt out of embeddings stuff
         elif (self.gpt_d is None) and (self.bert_d is not None):
             logging.info(f"Using {bert_model} for embeddings tasks.")
             logging.warn("No causal model loaded. Disabled generative conversations.")
         else:  # Nothing got loaded.
-            logging.warn(f"No valid GPT or BERT model names provided! The available deployments are:\n{serve.list_deployments()}")
+            logging.warn(f"No valid GPT or BERT model names provided! The available deployments are:\n{deployments}")
         
-        # handles here? if no bert, use gpt hidden states. make use of Deployment.options()
+        if not deployments:
+            logging.info(f"No deployments active. Deploying {gpt_model} and {bert_model}.")
+            self.load_set_models(gpt_model, bert_model)
+            logging.info(f"Deployed deployments:\n{serve.list_deployments()}\nGLHF!")
+        
+        
+        self.sukima_age_args = {
+            "prompt": "",
+            "sample_args": {
+                "temp": 0.45,
+                "top_p": 0.8,
+                "typical_p": 0.98,
+                "rep_p": 1.125,
+                "rep_p_range": 2048,
+            },
+            "gen_args": {
+                "max_length": 100,
+                "min_length": 1,
+                "eos_token_id": 198,
+                # "best_of": 2
+            }
+        }  # again... replace all dicts usage as mentioned before...
     
+
+    def load_set_models(self, gpt_model: str, bert_model: str):
+        GPTHF.options(  # how do i use init_kwargs here?
+            init_args=(gpt_model,),
+            num_replicas=1, ray_actor_options={
+                "num_gpus": 1
+            }  # put model name in name=
+        ).deploy()
+        BERTHF.options(
+            init_args=(bert_model,),
+            num_replicas=4, ray_actor_options={
+                "num_gpus": 0.2
+            }
+        ).deploy()  # should i just unify these classes?
+
+        self.gpt_d = serve.get_deployment("GPT").get_handle()
+        self.bert_d = serve.get_deployment("BERT").get_handle()
     
     def auth(self):
         pass  # cloud or remote cluter related stuff here, put all local stuff in constructor including docker api usage
 
 
-    async def generate(self, args):
+    async def generate_async(self, args):  # just rename to generate(), yeah?
         if self.gpt_d is None:
             raise ValueError("No causal model loaded")
-        pass
+        model = self.gpt_d
+        
+        output = await model.generate.remote(args)  # TODO: read TODO in https://github.com/KM3-Labs/kmmm-bot/blob/954d1652e96d4c7b2b73601095d95c7539b8787e/cogs/utils/tf/gpthf.py#L79
+        return output["output"][len(args["prompt"]):]  # once again, replace this dict shit.
 
-
-    async def get_hidden_states(self, args):
-        pass
+    async def get_hidden_states(self, prompt: str, layer: int):  # submit a ray task that gets bert handle etc
+        # layers arg should be a List[int] when not being constrained to shimeji
+        if (self.bert_d is None) and (self.gpt_d is None):
+            raise ValueError("No models to generate embeddings with.")
+        if self.bert_d is None:
+            logging.warn(f"No BERT model available. Embeddings will be generated by {self.gpt_d.deployment_name}")
+            model = self.gpt_d
+        else:
+            model = self.bert_d
+        
+        output = await model.hidden.remote(prompt, [layer])
+        return output[str(layer)][0]  # when are we supposed to use ray.get instead of just a remote call?
 
     async def should_respond(self, context, name):
         pass
+
+    async def response_async(self, context: str) -> str:
+        args = self.sukima_age_args
+        args["prompt"] = context
+        args["gen_args"]["eos_token_id"] = 198
+        args["gen_args"]["min_length"] = 1
+        response = await self.generate_async(args)
+        return response
