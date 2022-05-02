@@ -1,3 +1,4 @@
+from typing import List
 import torch
 import ray
 from ray import serve
@@ -6,15 +7,17 @@ import logging
 
 from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification
 
-from autohf import AutoHF
-from tensorize import tensorize, untensorize
-from utils import get_dtype, tensorized_path
+from .autohf import AutoHF
+from .tensorize import tensorize, untensorize
+from .utils import get_dtype, tensorized_path
 
 @serve.deployment(num_replicas=2, name="BERT", ray_actor_options={"num_gpus": 1})
 class BERTHF(AutoHF):
     def __init__(self, model_name='distilroberta-base', device=None, parallelize=False, quantized=False, tensorized=False):
         super().__init__(model_name=model_name, decoder=False)
 
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
         model_dtype = get_dtype(device)
         self.device = device
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -82,23 +85,14 @@ class BERTHF(AutoHF):
         return output_probs
 
     @torch.inference_mode()
-    def hidden(self, args):
+    def hidden(self, prompt: str, layers: List[int]):
         # args:
         #   prompt: str - prompt to extract hidden states from
         #   layers: int - number of last hidden layers to return
         
-        if not isinstance(args, dict):
-            raise ValueError('args must be a dictionary.')
-        
-        if 'prompt' not in args or not isinstance(args['prompt'], str):
-            raise ValueError('args must contain a prompt as a string.')
-        
-        if 'layers' not in args or not isinstance(args['layers'], list):
-            raise ValueError('layers must be the last n hidden layers to return.')
-        
-        prompt_inputs = self.tokenizer.encode(args['prompt'], return_tensors='pt').to(self.device)
+        prompt_inputs = self.tokenizer.encode(prompt, return_tensors='pt').to(self.device)
 
         hidden_states = self.model(prompt_inputs, output_hidden_states=True).hidden_states
-        layers = {i: torch.mean(hidden_states[i], dim = (1, )).detach().cpu().numpy().tolist() for i in args['layers']}
+        layers = {i: torch.mean(hidden_states[i], dim = (1, )).detach().cpu().numpy().tolist() for i in layers}
         
         return layers

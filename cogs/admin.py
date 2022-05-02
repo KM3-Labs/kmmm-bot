@@ -16,7 +16,7 @@ class Admin(commands.Cog):
             self.bot.load_extension(cog)
             print(f"loaded cog {cog}")
         except commands.ExtensionError as e:
-            await ctx.send(f'{e.__class__.name}: {e}')
+            await ctx.send(f'{e.__class__.name}: {e}')  # type: ignore
         else:
             await ctx.send('\N{OK HAND SIGN}')
 

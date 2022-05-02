@@ -1,5 +1,5 @@
 # from app.core.logging import logging
-from quantization import FrozenBNBEmbedding, FrozenBNBLinear
+from .quantization import FrozenBNBEmbedding, FrozenBNBLinear
 from typing import Dict, List, Tuple
 from mmappickle import mmapdict
 from torch import nn

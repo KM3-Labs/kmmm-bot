@@ -5,7 +5,7 @@ import zlib
 import copy
 import numpy as np
 
-from quantization import convert_to_int8
+from .quantization import convert_to_int8
 from transformers import AutoModelForCausalLM
 
 # globals
