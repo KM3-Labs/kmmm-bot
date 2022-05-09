@@ -60,7 +60,7 @@ class GPTHF(AutoHF):
             # we assume this is a gptj model - TODO: fix this
             transformers.models.gptj.modeling_gptj.GPTJBlock = GPTJBlock  # monkey-patch GPT-J
             if not self.tensorized:
-                self.model = AutoModelForSoftPromptLM.from_pretrained(model_name, low_cpu_mem_usage=True, return_dict_in_generate=True).eval().to(self.device)
+                self.model = GPTJForCausalLM.from_pretrained(model_name, low_cpu_mem_usage=True, return_dict_in_generate=True).eval().to(self.device)
             logger.info(f'Quantization complete.')
         else:
             self.quantized = False
@@ -140,16 +140,15 @@ class GPTHF(AutoHF):
         output = Response()
         best_of_idx = 0
 
-        prompt = args.prompt
         global current_sp
         current_sp = softprompt
         if softprompt:
             sp_tokenizer = softprompt.get_tokenizer(self.tokenizer)
             resize_model_embeddings(self.model, sp_tokenizer)
-            input_ids = sp_tokenizer(prompt, return_tensors='pt').to(self.device)
+            input_ids = sp_tokenizer(args.prompt, return_tensors='pt').to(self.device)
         else:
             resize_model_embeddings(self.model, self.tokenizer)
-            input_ids = self.tokenizer(prompt, return_tensors='pt').to(self.device)
+            input_ids = self.tokenizer(args.prompt, return_tensors='pt').to(self.device)
         
         outputs = None
         if best_of is None:
@@ -216,9 +215,11 @@ class GPTHF(AutoHF):
     
     @torch.inference_mode()
     def hidden(self, prompt: str, layers: List[int]):
-        # args:
-        #   prompt: str - prompt to extract hidden states from
-        #   layers: int - number of last hidden layers to return
+        """
+        Return hidden states from a forward pass
+        :param prompt: prompt to extract hidden states from
+        :param layers: number of last hidden layers to return
+        """
         
         prompt_inputs = self.tokenizer.encode(prompt, return_tensors='pt').to(self.device)
 

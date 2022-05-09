@@ -73,9 +73,11 @@ class BERTHF(AutoHF):
 
     @torch.inference_mode()
     def hidden(self, prompt: str, layers: List[int]):
-        # args:
-        #   prompt: str - prompt to extract hidden states from
-        #   layers: int - number of last hidden layers to return
+        """
+        Return hidden states from a forward pass
+        :param prompt: prompt to extract hidden states from
+        :param layers: number of last hidden layers to return
+        """
         
         prompt_inputs = self.tokenizer.encode(prompt, return_tensors='pt').to(self.device)
 
