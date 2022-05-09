@@ -1,4 +1,5 @@
 docker
+pydantic
 git+https://github.com/hitomi-team/shimeji.git
 ray[default]
 ray[serve]

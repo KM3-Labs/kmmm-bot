@@ -55,22 +55,9 @@ class BERTHF(AutoHF):
             raise NotImplementedError('Parallelization is not supported yet for encoder models such as BERT.')
     
     @torch.inference_mode()
-    def classify(self, args):
-        if not isinstance(args, dict):
-            raise ValueError('args must be a dictionary.')
+    def classify(self, prompt: str, labels: List[int]):
         
-        if 'prompt' not in args or not isinstance(args['prompt'], str):
-            raise ValueError('args must contain a prompt as a string.')
-
-        
-        if "labels" not in args or not isinstance(args["labels"], list):
-            raise ValueError("args must contain a list of labels")
-        
-        for label in args["labels"]:
-            if not isinstance(label, str):
-                raise ValueError("labels must be a list of integers")
-        
-        prompt_inputs = self.tokenizer.encode(args['prompt'], return_tensors='pt').to(self.device)
+        prompt_inputs = self.tokenizer.encode(prompt, return_tensors='pt').to(self.device)
 
         outputs = self.model(prompt_inputs).logits
         outputs = torch.nn.functional.softmax(outputs, dim=1)
@@ -79,8 +66,8 @@ class BERTHF(AutoHF):
 
         # TODO: automatically fill labels
 
-        for i in range(len(args["labels"])):
-            output_probs[args["labels"][i]] = float(outputs[0][i])
+        for i in range(len(labels)):
+            output_probs[labels[i]] = float(outputs[0][i])
 
         return output_probs
 

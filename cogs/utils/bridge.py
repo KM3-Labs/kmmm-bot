@@ -3,6 +3,7 @@ from multiprocessing.sharedctypes import Value
 from optparse import Option
 from turtle import st
 from typing import List, Optional
+from cogs.utils.tf.validation import GPTGenRequest, ModelGenArgs, ModelSampleArgs
 from shimeji.model_provider import ModelProvider
 import logging
 
@@ -50,23 +51,22 @@ class ServalModelProvider(ModelProvider):
             self.load_set_models(gpt_model, bert_model)
             logging.info(f"Deployed deployments:\n{serve.list_deployments()}\nGLHF!")
         
-        
-        self.sukima_age_args = {
-            "prompt": "",
-            "sample_args": {
-                "temp": 0.45,
-                "top_p": 0.8,
-                "typical_p": 0.98,
-                "rep_p": 1.125,
-                "rep_p_range": 2048,
-            },
-            "gen_args": {
-                "max_length": 100,
-                "min_length": 1,
-                "eos_token_id": 198,
-                # "best_of": 2
-            }
-        }  # again... replace all dicts usage as mentioned before...
+        self.sukima_age_args = GPTGenRequest(
+            prompt="",
+            sample_args=ModelSampleArgs(
+                temp=0.45,
+                top_p=0.8,
+                typical_p=0.98,
+                rep_p=1.125,
+                rep_p_range=2048
+            ),
+            gen_args=ModelGenArgs(
+                max_length= 100,
+                min_length=1,
+                eos_token_id=198,
+                # best_of=2
+            )
+        )
     
 
     def load_set_models(self, gpt_model: str, bert_model: str):
@@ -96,7 +96,7 @@ class ServalModelProvider(ModelProvider):
         model = self.gpt_d
         
         output = await model.generate.remote(args)  # TODO: read TODO in https://github.com/KM3-Labs/kmmm-bot/blob/954d1652e96d4c7b2b73601095d95c7539b8787e/cogs/utils/tf/gpthf.py#L79
-        return output["output"][len(args["prompt"]):]  # once again, replace this dict shit.
+        return output.output[len(args.prompt):]
 
     async def get_hidden_states(self, prompt: str, layer: int):  # submit a ray task that gets bert handle etc
         # layers arg should be a List[int] when not being constrained to shimeji
@@ -116,8 +116,8 @@ class ServalModelProvider(ModelProvider):
 
     async def response_async(self, context: str) -> str:
         args = self.sukima_age_args
-        args["prompt"] = context
-        args["gen_args"]["eos_token_id"] = 198
-        args["gen_args"]["min_length"] = 1
+        args.prompt = context
+        args.gen_args.eos_token_id = 198
+        args.gen_args.min_length = 1
         response = await self.generate_async(args)
         return response
