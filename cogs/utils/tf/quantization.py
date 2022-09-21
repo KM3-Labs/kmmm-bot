@@ -6,6 +6,7 @@ from torch.cuda.amp import custom_fwd, custom_bwd
 
 from bitsandbytes.functional import quantize_blockwise, dequantize_blockwise
 
+# Obselete due to https://github.com/huggingface/transformers/pull/17901
 class FrozenBNBLinear(nn.Module):
     def __init__(self, weight, absmax, code, bias=None):
         assert isinstance(bias, nn.Parameter) or bias is None
