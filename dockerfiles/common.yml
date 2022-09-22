@@ -1,0 +1,15 @@
+services:
+    app:
+        image: kmmmbot:latest
+        build:
+            context: ../
+            dockerfile: dockerfiles/Dockerfile
+        env_file:
+            - conf.env
+        ports:
+            - "8000:8000"
+        volumes:
+            - ./:/kmmmbot/
+        depends_on:
+            database:
+                condition: service_healthy

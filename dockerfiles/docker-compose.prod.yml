@@ -1,0 +1,7 @@
+services:
+    app:
+        extends:
+            file: common.yml
+            service: app
+        environment:
+            - GOOGLE_API_KEY=xyz

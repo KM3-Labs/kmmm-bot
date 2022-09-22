@@ -1,0 +1,7 @@
+services:
+    app:
+        extends:
+            file: common.yml
+            service: app
+        environment:
+            - DEBUG=1
